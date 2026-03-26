@@ -1,154 +1,545 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import Tesseract from "tesseract.js";
 
+type Grau = "Mestre" | "Companheiro" | "Aprendiz" | "";
+
 type Membro = {
-nome: string;
-grau: string;
-presenca: number;
+  id: string;
+  nome: string;
+  grau: Grau | string;
+  presenca: number;
 };
 
-export default function App() {
-const [membros, setMembros] = useState<Membro[]>([]);
-const [selecoes, setSelecoes] = useState<Record<string, string>>({});
-const [loading, setLoading] = useState(false);
+type Selecoes = Record<string, string>;
 
-const cargos = [
-"Venerável Mestre",
-"1º Vigilante",
-"2º Vigilante",
-"Orador",
-"Tesoureiro",
-"Secretário",
-"Chanceler",
-"Mestre de Cerimônias"
+const CARGOS = [
+  "Venerável Mestre",
+  "1º Vigilante",
+  "2º Vigilante",
+  "Orador",
+  "Tesoureiro",
+  "Secretário",
+  "Chanceler",
+  "Mestre de Cerimônias",
+  "1º Diácono",
+  "2º Diácono",
+  "Hospitaleiro",
+  "Guarda do Templo"
 ];
 
-const handleExcel = (file: File) => {
-const reader = new FileReader();
-reader.onload = (evt) => {
-const data = new Uint8Array(evt.target?.result as ArrayBuffer);
-const workbook = XLSX.read(data, { type: "array" });
-const sheet = workbook.Sheets[workbook.SheetNames[0]];
-const json: any[] = XLSX.utils.sheet_to_json(sheet);
+const COMISSOES = ["Assuntos Gerais", "Finanças", "Solidariedade"];
 
-
-  const parsed = json.map(row => ({
-    nome: row.Nome || row.nome,
-    grau: row.Grau || row.grau,
-    presenca: Number(row["Presença (%)"] || row.presenca || 0)
-  }));
-
-  setMembros(parsed);
-};
-reader.readAsArrayBuffer(file);
-
-
+const PRESENCA_MINIMA: Record<string, number> = {
+  "Venerável Mestre": 75,
+  "1º Vigilante": 75,
+  "2º Vigilante": 75,
+  Orador: 50,
+  Tesoureiro: 50,
+  Secretário: 50,
+  Chanceler: 50,
+  "Mestre de Cerimônias": 50,
+  "1º Diácono": 50,
+  "2º Diácono": 50,
+  Hospitaleiro: 50,
+  "Guarda do Templo": 50
 };
 
-const handleOCR = async (file: File) => {
-setLoading(true);
-const { data } = await Tesseract.recognize(file, "por");
-
-
-const linhas = data.text.split("\n");
-
-const parsed = linhas
-  .map(l => {
-    const partes = l.trim().split(" ");
-    return {
-      nome: partes[0],
-      grau: partes[1],
-      presenca: Number(partes[2]) || 0
-    };
-  })
-  .filter(x => x.nome && x.grau);
-
-setMembros(parsed);
-setLoading(false);
-
-
+const INITIAL_FORM: Omit<Membro, "id"> = {
+  nome: "",
+  grau: "Mestre",
+  presenca: 0
 };
 
-const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-const file = e.target.files?.[0];
-if (!file) return;
-
-
-if (file.name.endsWith(".xlsx")) {
-  handleExcel(file);
-} else {
-  handleOCR(file);
+function normalizeGrau(raw: unknown): string {
+  const value = String(raw ?? "").trim().toLowerCase();
+  if (value.includes("mestre")) return "Mestre";
+  if (value.includes("companheiro")) return "Companheiro";
+  if (value.includes("aprendiz")) return "Aprendiz";
+  return String(raw ?? "").trim();
 }
 
+function makeId() {
+  return Math.random().toString(36).slice(2, 10);
+}
 
-};
+function parseNumber(value: unknown) {
+  if (typeof value === "number") return value;
+  const text = String(value ?? "0").replace("%", "").replace(",", ".").trim();
+  const num = Number(text);
+  return Number.isFinite(num) ? num : 0;
+}
 
-const selecionados = Object.values(selecoes);
+function isCargoElegivel(m: Membro, cargo: string) {
+  return normalizeGrau(m.grau) === "Mestre" && m.presenca >= PRESENCA_MINIMA[cargo];
+}
 
-const getElegiveis = (cargo: string) => {
-let lista = membros.filter(m => !selecionados.includes(m.nome));
+function badgeClass(kind: "ok" | "warn" | "error") {
+  if (kind === "ok") return "bg-green-100 text-green-800 border-green-200";
+  if (kind === "warn") return "bg-yellow-100 text-yellow-800 border-yellow-200";
+  return "bg-red-100 text-red-800 border-red-200";
+}
 
+export default function App() {
+  const [membros, setMembros] = useState<Membro[]>([]);
+  const [form, setForm] = useState(INITIAL_FORM);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [selecoes, setSelecoes] = useState<Selecoes>({});
+  const [comissoes, setComissoes] = useState<Record<string, string[]>>({
+    "Assuntos Gerais": [],
+    Finanças: [],
+    Solidariedade: []
+  });
+  const [loading, setLoading] = useState(false);
+  const [ocrText, setOcrText] = useState("");
 
-lista = lista.filter(m => {
-  if (["Venerável Mestre", "1º Vigilante", "2º Vigilante"].includes(cargo)) {
-    return m.presenca >= 75;
-  }
-  if (["Orador", "Tesoureiro"].includes(cargo)) {
-    return m.presenca >= 50;
-  }
-  return m.presenca >= 50;
-});
+  const cargosSelecionados = useMemo(
+    () => Object.values(selecoes).filter(Boolean),
+    [selecoes]
+  );
 
-const mestres = lista.filter(m => m.grau === "Mestre");
-if (mestres.length > 0) return mestres;
+  const allAssigned = useMemo(() => {
+    const membrosComissoes = Object.values(comissoes).flat();
+    return [...cargosSelecionados, ...membrosComissoes];
+  }, [cargosSelecionados, comissoes]);
 
-return lista;
+  const mestresElegiveis = useMemo(
+    () => membros.filter((m) => normalizeGrau(m.grau) === "Mestre" && m.presenca >= 50),
+    [membros]
+  );
 
+  const handleExcel = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const data = new Uint8Array(evt.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const json: any[] = XLSX.utils.sheet_to_json(sheet);
 
-};
+      const parsed: Membro[] = json
+        .map((row) => ({
+          id: makeId(),
+          nome: String(row.Nome || row.nome || "").trim(),
+          grau: normalizeGrau(row.Grau || row.grau || ""),
+          presenca: parseNumber(row["Presença (%)"] || row.presenca || row.presença || 0)
+        }))
+        .filter((m) => m.nome);
 
-const handleSelect = (cargo: string, nome: string) => {
-setSelecoes(prev => ({ ...prev, [cargo]: nome }));
-};
+      setMembros(parsed);
+    };
+    reader.readAsArrayBuffer(file);
+  };
 
-return (
+  const handleOCR = async (file: File) => {
+    setLoading(true);
+    try {
+      const result = await Tesseract.recognize(file, "por");
+      const text = result.data.text || "";
+      setOcrText(text);
 
-  <div style={{ padding: 20 }}>
-    <h1>Sistema de Cargos Maçônicos</h1>
+      const linhas = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
 
+      const parsed: Membro[] = linhas
+        .map((linha) => {
+          const partes = linha.split(/\s{2,}|\t/).map((p) => p.trim()).filter(Boolean);
+          if (partes.length >= 3) {
+            return {
+              id: makeId(),
+              nome: partes[0],
+              grau: normalizeGrau(partes[1]),
+              presenca: parseNumber(partes[2])
+            };
+          }
+          return null;
+        })
+        .filter(Boolean) as Membro[];
 
-<input type="file" onChange={handleFile} />
-{loading && <p>Processando OCR...</p>}
+      if (parsed.length > 0) setMembros(parsed);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-<h2>Cargos</h2>
-{cargos.map((cargo) => {
-  const elegiveis = getElegiveis(cargo);
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+      handleExcel(file);
+    } else {
+      handleOCR(file);
+    }
+  };
+
+  const handleSaveMembro = () => {
+    if (!form.nome.trim()) return;
+    const novo: Membro = {
+      id: editingId || makeId(),
+      nome: form.nome.trim(),
+      grau: normalizeGrau(form.grau),
+      presenca: Number(form.presenca)
+    };
+
+    if (editingId) {
+      setMembros((prev) => prev.map((m) => (m.id === editingId ? novo : m)));
+    } else {
+      setMembros((prev) => [...prev, novo]);
+    }
+
+    setForm(INITIAL_FORM);
+    setEditingId(null);
+  };
+
+  const handleEdit = (m: Membro) => {
+    setEditingId(m.id);
+    setForm({ nome: m.nome, grau: m.grau, presenca: m.presenca });
+  };
+
+  const handleDelete = (id: string) => {
+    const membro = membros.find((m) => m.id === id);
+    setMembros((prev) => prev.filter((m) => m.id !== id));
+    if (!membro) return;
+
+    setSelecoes((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((cargo) => {
+        if (next[cargo] === membro.nome) delete next[cargo];
+      });
+      return next;
+    });
+
+    setComissoes((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((c) => {
+        next[c] = next[c].filter((nome) => nome !== membro.nome);
+      });
+      return next;
+    });
+  };
+
+  const elegiveisPorCargo = (cargo: string) => {
+    return membros
+      .filter((m) => !allAssigned.includes(m.nome) || selecoes[cargo] === m.nome)
+      .filter((m) => isCargoElegivel(m, cargo))
+      .sort((a, b) => b.presenca - a.presenca);
+  };
+
+  const handleSelectCargo = (cargo: string, nome: string) => {
+    const anterior = selecoes[cargo];
+    setSelecoes((prev) => ({ ...prev, [cargo]: nome }));
+
+    if (anterior && anterior !== nome) {
+      setComissoes((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((c) => {
+          next[c] = next[c].filter((n) => n !== nome);
+        });
+        return next;
+      });
+    }
+  };
+
+  const comissaoPermitida = (comissao: string, nome: string) => {
+    const membro = membros.find((m) => m.nome === nome);
+    if (!membro) return false;
+    if (normalizeGrau(membro.grau) !== "Mestre") return false;
+    if (membro.presenca < 50) return false;
+
+    const cargoDoNome = Object.entries(selecoes).find(([, n]) => n === nome)?.[0];
+    if (cargoDoNome === "Venerável Mestre") return false;
+    if (comissao === "Assuntos Gerais" && cargoDoNome === "Orador") return false;
+    if ((comissao === "Finanças" || comissao === "Solidariedade") && (cargoDoNome === "Tesoureiro" || cargoDoNome === "Hospitaleiro")) return false;
+    return true;
+  };
+
+  const elegiveisComissao = (comissao: string) => {
+    return membros
+      .filter((m) => !cargosSelecionados.includes(m.nome) && (comissoes[comissao] || []).includes(m.nome) === false)
+      .filter((m) => comissaoPermitida(comissao, m.nome))
+      .sort((a, b) => b.presenca - a.presenca);
+  };
+
+  const vagasComissao = (comissao: string) => {
+    const disponiveis = membros.filter((m) => !cargosSelecionados.includes(m.nome)).filter((m) => comissaoPermitida(comissao, m.nome));
+    return disponiveis.length >= 3 ? 3 : 2;
+  };
+
+  const toggleComissao = (comissao: string, nome: string) => {
+    const limite = vagasComissao(comissao);
+    setComissoes((prev) => {
+      const atuais = prev[comissao] || [];
+      if (atuais.includes(nome)) {
+        return { ...prev, [comissao]: atuais.filter((n) => n !== nome) };
+      }
+      if (atuais.length >= limite) return prev;
+      return { ...prev, [comissao]: [...atuais, nome] };
+    });
+  };
+
+  const alertas = useMemo(() => {
+    const items: { texto: string; tipo: "ok" | "warn" | "error" }[] = [];
+
+    const totalMestres50 = mestresElegiveis.length;
+    if (totalMestres50 < CARGOS.length) {
+      items.push({
+        texto: `Há apenas ${totalMestres50} Mestres com presença mínima para ${CARGOS.length} cargos. Alguns cargos podem ficar vagos.`,
+        tipo: "warn"
+      });
+    } else {
+      items.push({
+        texto: `Há Mestres suficientes para preencher todos os cargos exclusivamente com Mestres elegíveis.`,
+        tipo: "ok"
+      });
+    }
+
+    CARGOS.forEach((cargo) => {
+      const nome = selecoes[cargo];
+      if (!nome) return;
+      const membro = membros.find((m) => m.nome === nome);
+      if (!membro) return;
+      if (!isCargoElegivel(membro, cargo)) {
+        items.push({ texto: `${nome} não atende aos critérios do cargo ${cargo}.`, tipo: "error" });
+      }
+    });
+
+    COMISSOES.forEach((comissao) => {
+      const qtd = (comissoes[comissao] || []).length;
+      const limite = vagasComissao(comissao);
+      if (qtd > 0 && qtd < limite) {
+        items.push({
+          texto: `${comissao} ainda está incompleta: ${qtd}/${limite}.`,
+          tipo: "warn"
+        });
+      }
+    });
+
+    return items;
+  }, [membros, selecoes, comissoes, mestresElegiveis]);
 
   return (
-    <div key={cargo} style={{ marginBottom: 10 }}>
-      <label>{cargo}</label>
-      <select
-        value={selecoes[cargo] || ""}
-        onChange={(e) => handleSelect(cargo, e.target.value)}
-      >
-        <option value="">Selecione...</option>
-        {elegiveis.map((m) => (
-          <option key={m.nome} value={m.nome}>
-            {m.nome} ({m.presenca}%) {m.grau !== "Mestre" ? "*" : ""}
-          </option>
-        ))}
-      </select>
+    <div className="min-h-screen bg-slate-50 text-slate-900 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="bg-white rounded-3xl shadow-sm border p-6">
+          <h1 className="text-3xl font-bold">Gestão de Cargos e Comissões</h1>
+          <p className="text-sm text-slate-600 mt-2">
+            Todos os cargos são preenchidos apenas por Mestres. As comissões usam 3 membros e, se não houver nomes suficientes, aceitam 2.
+          </p>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 bg-white rounded-3xl shadow-sm border p-6 space-y-4">
+            <h2 className="text-xl font-semibold">Importação e cadastro</h2>
+            <input type="file" onChange={handleFile} className="block w-full text-sm" />
+            {loading && <p className="text-sm text-amber-700">Processando OCR...</p>}
+
+            <div className="grid gap-3">
+              <input
+                className="border rounded-2xl px-3 py-2"
+                placeholder="Nome"
+                value={form.nome}
+                onChange={(e) => setForm((prev) => ({ ...prev, nome: e.target.value }))}
+              />
+              <select
+                className="border rounded-2xl px-3 py-2"
+                value={form.grau}
+                onChange={(e) => setForm((prev) => ({ ...prev, grau: e.target.value }))}
+              >
+                <option value="Mestre">Mestre</option>
+                <option value="Companheiro">Companheiro</option>
+                <option value="Aprendiz">Aprendiz</option>
+              </select>
+              <input
+                className="border rounded-2xl px-3 py-2"
+                type="number"
+                min={0}
+                max={100}
+                placeholder="Presença (%)"
+                value={form.presenca}
+                onChange={(e) => setForm((prev) => ({ ...prev, presenca: Number(e.target.value) }))}
+              />
+              <button
+                className="rounded-2xl bg-slate-900 text-white px-4 py-2"
+                onClick={handleSaveMembro}
+              >
+                {editingId ? "Salvar edição" : "Adicionar irmão"}
+              </button>
+            </div>
+
+            {ocrText && (
+              <details className="text-xs text-slate-600">
+                <summary className="cursor-pointer font-medium">Ver texto bruto do OCR</summary>
+                <pre className="mt-2 whitespace-pre-wrap bg-slate-100 p-3 rounded-2xl">{ocrText}</pre>
+              </details>
+            )}
+          </div>
+
+          <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-4">Irmãos cadastrados</h2>
+            <div className="overflow-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b">
+                    <th className="py-2">Nome</th>
+                    <th className="py-2">Grau</th>
+                    <th className="py-2">Presença</th>
+                    <th className="py-2">Status</th>
+                    <th className="py-2">Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {membros.map((m) => {
+                    const elegivel = normalizeGrau(m.grau) === "Mestre" && m.presenca >= 50;
+                    return (
+                      <tr key={m.id} className="border-b last:border-0">
+                        <td className="py-2">{m.nome}</td>
+                        <td className="py-2">{m.grau}</td>
+                        <td className="py-2">{m.presenca}%</td>
+                        <td className="py-2">
+                          <span className={`inline-flex border rounded-full px-2 py-1 text-xs ${badgeClass(elegivel ? "ok" : "warn")}`}>
+                            {elegivel ? "Mestre elegível" : "Fora dos cargos/comissões"}
+                          </span>
+                        </td>
+                        <td className="py-2 flex gap-2">
+                          <button className="text-sm underline" onClick={() => handleEdit(m)}>Editar</button>
+                          <button className="text-sm underline text-red-700" onClick={() => handleDelete(m.id)}>Excluir</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid xl:grid-cols-3 gap-6">
+          <div className="xl:col-span-2 bg-white rounded-3xl shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-4">Cargos</h2>
+            <div className="grid md:grid-cols-2 gap-4">
+              {CARGOS.map((cargo) => {
+                const elegiveis = elegiveisPorCargo(cargo);
+                const selecionado = selecoes[cargo] || "";
+                return (
+                  <div key={cargo} className="border rounded-2xl p-4 bg-slate-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold">{cargo}</h3>
+                      <span className={`text-xs px-2 py-1 rounded-full border ${badgeClass(PRESENCA_MINIMA[cargo] >= 75 ? "ok" : "warn")}`}>
+                        mínimo {PRESENCA_MINIMA[cargo]}%
+                      </span>
+                    </div>
+                    <select
+                      className="w-full border rounded-2xl px-3 py-2 bg-white"
+                      value={selecionado}
+                      onChange={(e) => handleSelectCargo(cargo, e.target.value)}
+                    >
+                      <option value="">Selecione um Mestre</option>
+                      {elegiveis.map((m) => (
+                        <option key={m.id} value={m.nome}>
+                          {m.nome} ({m.presenca}%)
+                        </option>
+                      ))}
+                    </select>
+                    {elegiveis.length === 0 && (
+                      <p className="text-xs text-red-700 mt-2">Sem Mestre elegível disponível para este cargo.</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border p-6">
+            <h2 className="text-xl font-semibold mb-4">Alertas</h2>
+            <div className="space-y-3">
+              {alertas.map((alerta, idx) => (
+                <div key={idx} className={`border rounded-2xl px-3 py-2 text-sm ${badgeClass(alerta.tipo)}`}>
+                  {alerta.texto}
+                </div>
+              ))}
+              {alertas.length === 0 && <p className="text-sm text-slate-500">Sem alertas no momento.</p>}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid xl:grid-cols-3 gap-6">
+          {COMISSOES.map((comissao) => {
+            const membrosAtuais = comissoes[comissao] || [];
+            const limite = vagasComissao(comissao);
+            const elegiveis = elegiveisComissao(comissao);
+            return (
+              <div key={comissao} className="bg-white rounded-3xl shadow-sm border p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">{comissao}</h2>
+                  <span className={`text-xs px-2 py-1 rounded-full border ${badgeClass(membrosAtuais.length === limite ? "ok" : "warn")}`}>
+                    {membrosAtuais.length}/{limite}
+                  </span>
+                </div>
+
+                <div className="space-y-2 mb-4">
+                  {membrosAtuais.map((nome) => (
+                    <button
+                      key={nome}
+                      className="w-full text-left rounded-2xl px-3 py-2 bg-slate-900 text-white"
+                      onClick={() => toggleComissao(comissao, nome)}
+                    >
+                      {nome} — remover
+                    </button>
+                  ))}
+                  {membrosAtuais.length === 0 && <p className="text-sm text-slate-500">Nenhum membro selecionado.</p>}
+                </div>
+
+                <div className="space-y-2">
+                  {elegiveis.map((m) => (
+                    <button
+                      key={m.id}
+                      className="w-full text-left rounded-2xl px-3 py-2 border bg-slate-50 hover:bg-slate-100 disabled:opacity-50"
+                      disabled={membrosAtuais.length >= limite}
+                      onClick={() => toggleComissao(comissao, m.nome)}
+                    >
+                      {m.nome} ({m.presenca}%)
+                    </button>
+                  ))}
+                  {elegiveis.length === 0 && <p className="text-sm text-slate-500">Sem Mestres disponíveis para esta comissão.</p>}
+                </div>
+
+                <div className="mt-4 text-xs text-slate-600 space-y-1">
+                  <p>• Usa 3 membros; cai para 2 quando não houver nomes suficientes.</p>
+                  {comissao === "Assuntos Gerais" && <p>• Orador não pode integrar esta comissão.</p>}
+                  {(comissao === "Finanças" || comissao === "Solidariedade") && <p>• Tesoureiro e Hospitaleiro não podem integrar esta comissão.</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-sm border p-6">
+          <h2 className="text-xl font-semibold mb-4">Resumo final</h2>
+          <div className="grid md:grid-cols-2 gap-6 text-sm">
+            <div>
+              <h3 className="font-semibold mb-2">Cargos preenchidos</h3>
+              <ul className="space-y-1">
+                {CARGOS.map((cargo) => (
+                  <li key={cargo}>
+                    <span className="font-medium">{cargo}:</span> {selecoes[cargo] || "—"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-2">Comissões</h3>
+              <ul className="space-y-2">
+                {COMISSOES.map((comissao) => (
+                  <li key={comissao}>
+                    <span className="font-medium">{comissao}:</span> {(comissoes[comissao] || []).join(", ") || "—"}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
-})}
-
-<h2>Resultado</h2>
-<pre>{JSON.stringify(selecoes, null, 2)}</pre>
-
-<p>* indica não Mestre utilizado por falta de opção</p>
-
-
-  </div>
-);
 }

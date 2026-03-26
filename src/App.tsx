@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import Tesseract from "tesseract.js";
+import jsPDF from "jspdf";
 
 type Grau = "Mestre" | "Companheiro" | "Aprendiz" | "";
 
@@ -260,16 +261,6 @@ export default function App() {
       else next[cargo] = membroId;
       return next;
     });
-
-    if (membroId) {
-      setComissoes((prev) => {
-        const next = { ...prev };
-        Object.keys(next).forEach((c) => {
-          next[c] = next[c].filter((id) => id !== membroId);
-        });
-        return next;
-      });
-    }
   };
 
   const comissaoPermitida = (comissao: string, membroId: string) => {
@@ -348,6 +339,70 @@ export default function App() {
     escolherParaComissao("Solidariedade");
 
     setComissoes(novos);
+  };
+
+  const gerarPDF = () => {
+    const doc = new jsPDF();
+    const hoje = new Date().toLocaleDateString("pt-BR");
+    let y = 15;
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(16);
+    doc.text("Resumo Final - Gestão de Cargos e Comissões", 10, y);
+
+    y += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Data de geração: ${hoje}`, 10, y);
+
+    y += 12;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("Cargos", 10, y);
+
+    y += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+
+    CARGOS.forEach((cargo) => {
+      const nome = membros.find((m) => m.id === selecoes[cargo])?.nome || "—";
+      if (y > 280) {
+        doc.addPage();
+        y = 15;
+      }
+      doc.text(`${cargo}: ${nome}`, 10, y);
+      y += 7;
+    });
+
+    y += 6;
+    if (y > 280) {
+      doc.addPage();
+      y = 15;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("Comissões", 10, y);
+
+    y += 8;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+
+    COMISSOES.forEach((comissao) => {
+      const nomes = (comissoes[comissao] || [])
+        .map((id) => membros.find((m) => m.id === id)?.nome)
+        .filter(Boolean)
+        .join(", ") || "—";
+
+      if (y > 280) {
+        doc.addPage();
+        y = 15;
+      }
+      doc.text(`${comissao}: ${nomes}`, 10, y);
+      y += 7;
+    });
+
+    doc.save("resumo-final-loja-maconica.pdf");
   };
 
   const alertas = useMemo(() => {
@@ -481,21 +536,6 @@ export default function App() {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl shadow-sm border p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-xl font-semibold">Comissões</h2>
-              <p className="text-sm text-slate-600">Preenchimento automático respeitando incompatibilidades e disponibilidade.</p>
-            </div>
-            <button
-              className="rounded-2xl bg-slate-900 text-white px-4 py-2"
-              onClick={preencherComissoesAutomaticamente}
-            >
-              Preencher comissões automaticamente
-            </button>
-          </div>
-        </div>
-
         <div className="grid xl:grid-cols-3 gap-6">
           <div className="xl:col-span-2 bg-white rounded-3xl shadow-sm border p-6">
             <h2 className="text-xl font-semibold mb-4">Cargos</h2>
@@ -540,6 +580,21 @@ export default function App() {
               ))}
               {alertas.length === 0 && <p className="text-sm text-slate-500">Sem alertas no momento.</p>}
             </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-3xl shadow-sm border p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <h2 className="text-xl font-semibold">Comissões</h2>
+              <p className="text-sm text-slate-600">Preenchimento automático respeitando incompatibilidades e disponibilidade.</p>
+            </div>
+            <button
+              className="rounded-2xl bg-slate-900 text-white px-4 py-2"
+              onClick={preencherComissoesAutomaticamente}
+            >
+              Preencher comissões automaticamente
+            </button>
           </div>
         </div>
 
@@ -590,6 +645,8 @@ export default function App() {
 
                 <div className="mt-4 text-xs text-slate-600 space-y-1">
                   <p>• Usa 3 membros; cai para 2 quando não houver nomes suficientes.</p>
+                  <p>• Um irmão pode ter cargo e comissão.</p>
+                  <p>• Um irmão não pode participar de mais de uma comissão.</p>
                   {comissao === "Assuntos Gerais" && <p>• Orador não pode integrar esta comissão.</p>}
                   {(comissao === "Finanças" || comissao === "Solidariedade") && <p>• Tesoureiro e Hospitaleiro não podem integrar esta comissão.</p>}
                 </div>
@@ -621,6 +678,15 @@ export default function App() {
                 ))}
               </ul>
             </div>
+          </div>
+
+          <div className="mt-6">
+            <button
+              className="rounded-2xl bg-green-700 text-white px-6 py-3 hover:bg-green-800"
+              onClick={gerarPDF}
+            >
+              Gerar PDF do resumo final
+            </button>
           </div>
         </div>
       </div>

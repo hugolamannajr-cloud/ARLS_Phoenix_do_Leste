@@ -98,10 +98,6 @@ export default function App() {
     [selecoes]
   );
 
-  const allAssigned = useMemo(() => {
-    const membrosComissoes = Object.values(comissoes).flat();
-    return [...cargosSelecionados, ...membrosComissoes];
-  }, [cargosSelecionados, comissoes]);
 
   const mestresElegiveis = useMemo(
     () => membros.filter((m) => normalizeGrau(m.grau) === "Mestre" && m.presenca >= 50),

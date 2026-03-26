@@ -137,7 +137,6 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [ocrText, setOcrText] = useState("");
 
-  const cargosSelecionados = useMemo(() => Object.values(selecoes).filter(Boolean), [selecoes]);
   const mestresElegiveis = useMemo(
     () => membros.filter((m) => normalizeGrau(m.grau) === "Mestre" && m.presenca >= 50),
     [membros]

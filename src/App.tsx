@@ -220,21 +220,50 @@ export default function App() {
   };
 
   const elegiveisPorCargo = (cargo: string) => {
+    const selecionadoAtual = selecoes[cargo] || "";
+    const nomesEmOutrosCargos = Object.entries(selecoes)
+      .filter(([outroCargo, nome]) => outroCargo !== cargo && Boolean(nome))
+      .map(([, nome]) => nome);
+
+    const nomesEmComissoes = Object.entries(comissoes)
+      .flatMap(([, nomes]) => nomes)
+      .filter((nome) => nome !== selecionadoAtual);
+
     return membros
-      .filter((m) => !allAssigned.includes(m.nome) || selecoes[cargo] === m.nome)
+      .filter((m) => !nomesEmOutrosCargos.includes(m.nome))
+      .filter((m) => !nomesEmComissoes.includes(m.nome))
       .filter((m) => isCargoElegivel(m, cargo))
       .sort((a, b) => b.presenca - a.presenca);
   };
 
   const handleSelectCargo = (cargo: string, nome: string) => {
-    const anterior = selecoes[cargo];
-    setSelecoes((prev) => ({ ...prev, [cargo]: nome }));
+    const anterior = selecoes[cargo] || "";
+
+    setSelecoes((prev) => {
+      const next = { ...prev };
+      if (!nome) {
+        delete next[cargo];
+      } else {
+        next[cargo] = nome;
+      }
+      return next;
+    });
+
+    if (nome) {
+      setComissoes((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((c) => {
+          next[c] = next[c].filter((n) => n !== nome);
+        });
+        return next;
+      });
+    }
 
     if (anterior && anterior !== nome) {
       setComissoes((prev) => {
         const next = { ...prev };
         Object.keys(next).forEach((c) => {
-          next[c] = next[c].filter((n) => n !== nome);
+          next[c] = next[c].filter((n) => n !== anterior);
         });
         return next;
       });

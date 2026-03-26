@@ -137,6 +137,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [ocrText, setOcrText] = useState("");
 
+  const cargosSelecionados = useMemo(() => Object.values(selecoes).filter(Boolean), [selecoes]);
   const mestresElegiveis = useMemo(
     () => membros.filter((m) => normalizeGrau(m.grau) === "Mestre" && m.presenca >= 50),
     [membros]
@@ -246,12 +247,10 @@ export default function App() {
     const idsEmOutrosCargos = Object.entries(selecoes)
       .filter(([outroCargo, membroId]) => outroCargo !== cargo && Boolean(membroId))
       .map(([, membroId]) => membroId);
-    const idsEmComissoes = Object.values(comissoes).flat().filter((id) => id !== selecionadoAtual);
 
     return membros
       .filter((m) => isCargoElegivel(m, cargo))
-      .filter((m) => !idsEmOutrosCargos.includes(m.id))
-      .filter((m) => !idsEmComissoes.includes(m.id))
+      .filter((m) => !idsEmOutrosCargos.includes(m.id) || m.id === selecionadoAtual)
       .sort((a, b) => b.presenca - a.presenca);
   };
 
@@ -288,8 +287,13 @@ export default function App() {
   };
 
   const elegiveisComissao = (comissao: string) => {
+    const idsEmOutrasComissoes = Object.entries(comissoes)
+      .filter(([outraComissao]) => outraComissao !== comissao)
+      .flatMap(([, ids]) => ids);
+
     return membros
       .filter((m) => !(comissoes[comissao] || []).includes(m.id))
+      .filter((m) => !idsEmOutrasComissoes.includes(m.id))
       .filter((m) => comissaoPermitida(comissao, m.id))
       .sort((a, b) => b.presenca - a.presenca);
   };
@@ -303,9 +307,14 @@ export default function App() {
     const limite = vagasComissao(comissao);
     setComissoes((prev) => {
       const atuais = prev[comissao] || [];
+      const emOutraComissao = Object.entries(prev)
+        .filter(([outra]) => outra !== comissao)
+        .some(([, ids]) => ids.includes(membroId));
+
       if (atuais.includes(membroId)) {
         return { ...prev, [comissao]: atuais.filter((id) => id !== membroId) };
       }
+      if (emOutraComissao) return prev;
       if (atuais.length >= limite) return prev;
       return { ...prev, [comissao]: [...atuais, membroId] };
     });
@@ -321,11 +330,13 @@ export default function App() {
     const usados = new Set<string>();
 
     const escolherParaComissao = (comissao: string) => {
-      const limiteBase = membros.filter((m) => comissaoPermitida(comissao, m.id)).length >= 3 ? 3 : 2;
-
-      const candidatos = membros
+      const disponiveis = membros
         .filter((m) => !usados.has(m.id))
-        .filter((m) => comissaoPermitida(comissao, m.id))
+        .filter((m) => comissaoPermitida(comissao, m.id));
+
+      const limiteBase = disponiveis.length >= 3 ? 3 : 2;
+
+      const candidatos = disponiveis
         .sort((a, b) => b.presenca - a.presenca)
         .slice(0, limiteBase);
 

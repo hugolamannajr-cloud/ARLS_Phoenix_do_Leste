@@ -485,16 +485,16 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 text-slate-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-white rounded-3xl shadow-sm border p-6">
-          <div className="flex items-start">
+          <div className="flex items-start justify-start">
             <img
               src={logoLoja}
               alt="Logo da Loja"
-              className="w-20 h-20 object-contain"
+              className="w-16 h-16 object-contain"
             />
           </div>
-
-          <div className="mt-4 text-center">
-            <h1 className="text-base md:text-xl font-bold leading-tight">
+        
+          <div className="mt-3 text-center">
+            <h1 className="text-sm md:text-xl font-bold leading-tight">
               AUG∴ RESP∴ LOJ∴ SIMB∴ PHOENIX DO LESTE - Nº 451
             </h1>
             <p className="text-sm text-slate-600 mt-2">

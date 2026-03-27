@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import Tesseract from "tesseract.js";
 import jsPDF from "jspdf";
-import logoLoja from "./assets/logo-loja.jpeg";
+import logo1 from "./assets/logo1.jpeg";
 
 type Grau = "Mestre" | "Companheiro" | "Aprendiz" | "";
 
@@ -448,7 +448,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex justify-start">
       <img
-        src={logoLoja}
+        src={logo1}
         alt="Logo da Loja"
         className="w-20 h-20 object-contain"
       />

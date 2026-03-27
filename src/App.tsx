@@ -444,20 +444,23 @@ export default function App() {
   }, [membros, selecoes, comissoes, mestresElegiveis]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex justify-start">
+    <div className="bg-white rounded-3xl shadow-sm border p-6">
+  <div className="grid grid-cols-[90px_1fr_90px] items-center gap-4">
+    <div className="flex justify-start">
       <img
-        src={logo1}
+        src={logoLoja}
         alt="Logo da Loja"
         className="w-20 h-20 object-contain"
       />
     </div>
 
     <div className="text-center">
-      <h1 className="text-xl md:text-3xl font-bold leading-tight">
-        AUG∴ RESP∴ LOJ∴ SIMB∴ PHOENIX DO LESTE - Nº 451
+      <h1 className="text-lg md:text-2xl font-bold leading-tight">
+        AUG∴ RESP∴ LOJ∴ SIMB∴
       </h1>
+      <h2 className="text-xl md:text-3xl font-bold leading-tight mt-1">
+        PHOENIX DO LESTE - Nº 451
+      </h2>
     </div>
 
     <div />

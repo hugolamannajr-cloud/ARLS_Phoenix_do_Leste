@@ -27,7 +27,7 @@ const CARGOS = [
   "1º Diácono",
   "2º Diácono",
   "Hospitaleiro",
-  "Guarda do Templo"
+  "Guarda do Templo",
 ];
 
 const COMISSOES = ["Assuntos Gerais", "Finanças", "Solidariedade"];
@@ -44,13 +44,13 @@ const PRESENCA_MINIMA: Record<string, number> = {
   "1º Diácono": 50,
   "2º Diácono": 50,
   Hospitaleiro: 50,
-  "Guarda do Templo": 50
+  "Guarda do Templo": 50,
 };
 
 const INITIAL_FORM: Omit<Membro, "id"> = {
   nome: "",
   grau: "Mestre",
-  presenca: 0
+  presenca: 0,
 };
 
 function normalizeGrau(raw: unknown): string {
@@ -82,7 +82,7 @@ function inferGrauFromRow(row: Record<string, unknown>) {
     row.Nome,
     row.nome,
     row.Membro,
-    row.membro
+    row.membro,
   ];
 
   for (const field of possibleFields) {
@@ -101,7 +101,7 @@ function inferNomeFromRow(row: Record<string, unknown>) {
     row.Irmao,
     row["Irmão / Nome"],
     row.Membro,
-    row.membro
+    row.membro,
   ];
 
   for (const field of candidates) {
@@ -134,7 +134,7 @@ export default function App() {
   const [comissoes, setComissoes] = useState<Record<string, string[]>>({
     "Assuntos Gerais": [],
     Finanças: [],
-    Solidariedade: []
+    Solidariedade: [],
   });
   const [loading, setLoading] = useState(false);
   const [ocrText, setOcrText] = useState("");
@@ -157,7 +157,9 @@ export default function App() {
           id: makeId(),
           nome: inferNomeFromRow(row),
           grau: inferGrauFromRow(row),
-          presenca: parseNumber(row["Presença (%)"] || row.presenca || row["presença"] || row["%"] || 0)
+          presenca: parseNumber(
+            row["Presença (%)"] || row.presenca || row["presença"] || row["%"] || 0
+          ),
         }))
         .filter((m) => m.nome);
 
@@ -173,7 +175,10 @@ export default function App() {
       const text = result.data.text || "";
       setOcrText(text);
 
-      const linhas = text.split("\n").map((l) => l.trim()).filter(Boolean);
+      const linhas = text
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
 
       const parsed: Membro[] = linhas
         .map((linha) => {
@@ -200,21 +205,29 @@ export default function App() {
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) handleExcel(file);
-    else handleOCR(file);
+
+    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+      handleExcel(file);
+    } else {
+      handleOCR(file);
+    }
   };
 
   const handleSaveMembro = () => {
     if (!form.nome.trim()) return;
+
     const novo: Membro = {
       id: editingId || makeId(),
       nome: form.nome.trim(),
       grau: normalizeGrau(form.grau),
-      presenca: Number(form.presenca)
+      presenca: Number(form.presenca),
     };
 
-    if (editingId) setMembros((prev) => prev.map((m) => (m.id === editingId ? novo : m)));
-    else setMembros((prev) => [...prev, novo]);
+    if (editingId) {
+      setMembros((prev) => prev.map((m) => (m.id === editingId ? novo : m)));
+    } else {
+      setMembros((prev) => [...prev, novo]);
+    }
 
     setForm(INITIAL_FORM);
     setEditingId(null);
@@ -222,11 +235,16 @@ export default function App() {
 
   const handleEdit = (m: Membro) => {
     setEditingId(m.id);
-    setForm({ nome: m.nome, grau: normalizeGrau(m.grau) as Grau, presenca: m.presenca });
+    setForm({
+      nome: m.nome,
+      grau: normalizeGrau(m.grau) as Grau,
+      presenca: m.presenca,
+    });
   };
 
   const handleDelete = (id: string) => {
     setMembros((prev) => prev.filter((m) => m.id !== id));
+
     setSelecoes((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((cargo) => {
@@ -234,6 +252,7 @@ export default function App() {
       });
       return next;
     });
+
     setComissoes((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((c) => {
@@ -271,9 +290,16 @@ export default function App() {
     if (membro.presenca < 50) return false;
 
     const cargoDoMembro = Object.entries(selecoes).find(([, id]) => id === membroId)?.[0];
+
     if (cargoDoMembro === "Venerável Mestre") return false;
     if (comissao === "Assuntos Gerais" && cargoDoMembro === "Orador") return false;
-    if ((comissao === "Finanças" || comissao === "Solidariedade") && (cargoDoMembro === "Tesoureiro" || cargoDoMembro === "Hospitaleiro")) return false;
+    if (
+      (comissao === "Finanças" || comissao === "Solidariedade") &&
+      (cargoDoMembro === "Tesoureiro" || cargoDoMembro === "Hospitaleiro")
+    ) {
+      return false;
+    }
+
     return true;
   };
 
@@ -296,6 +322,7 @@ export default function App() {
 
   const toggleComissao = (comissao: string, membroId: string) => {
     const limite = vagasComissao(comissao);
+
     setComissoes((prev) => {
       const atuais = prev[comissao] || [];
       const emOutraComissao = Object.entries(prev)
@@ -307,6 +334,7 @@ export default function App() {
       }
       if (emOutraComissao) return prev;
       if (atuais.length >= limite) return prev;
+
       return { ...prev, [comissao]: [...atuais, membroId] };
     });
   };
@@ -315,7 +343,7 @@ export default function App() {
     const novos: Record<string, string[]> = {
       "Assuntos Gerais": [],
       Finanças: [],
-      Solidariedade: []
+      Solidariedade: [],
     };
 
     const usados = new Set<string>();
@@ -390,10 +418,11 @@ export default function App() {
     doc.setFontSize(11);
 
     COMISSOES.forEach((comissao) => {
-      const nomes = (comissoes[comissao] || [])
-        .map((id) => membros.find((m) => m.id === id)?.nome)
-        .filter(Boolean)
-        .join(", ") || "—";
+      const nomes =
+        (comissoes[comissao] || [])
+          .map((id) => membros.find((m) => m.id === id)?.nome)
+          .filter(Boolean)
+          .join(", ") || "—";
 
       if (y > 280) {
         doc.addPage();
@@ -413,64 +442,65 @@ export default function App() {
     if (totalMestres50 < CARGOS.length) {
       items.push({
         texto: `Há apenas ${totalMestres50} Mestres com presença mínima para ${CARGOS.length} cargos. Alguns cargos podem ficar vagos.`,
-        tipo: "warn"
+        tipo: "warn",
       });
     } else {
       items.push({
         texto: "Há Mestres suficientes para preencher todos os cargos exclusivamente com Mestres elegíveis.",
-        tipo: "ok"
+        tipo: "ok",
       });
     }
 
     CARGOS.forEach((cargo) => {
       const membroId = selecoes[cargo];
       if (!membroId) return;
+
       const membro = membros.find((m) => m.id === membroId);
       if (!membro) return;
+
       if (!isCargoElegivel(membro, cargo)) {
-        items.push({ texto: `${membro.nome} não atende aos critérios do cargo ${cargo}.`, tipo: "error" });
+        items.push({
+          texto: `${membro.nome} não atende aos critérios do cargo ${cargo}.`,
+          tipo: "error",
+        });
       }
     });
 
     COMISSOES.forEach((comissao) => {
       const qtd = (comissoes[comissao] || []).length;
       const limite = vagasComissao(comissao);
+
       if (qtd > 0 && qtd < limite) {
-        items.push({ texto: `${comissao} ainda está incompleta: ${qtd}/${limite}.`, tipo: "warn" });
+        items.push({
+          texto: `${comissao} ainda está incompleta: ${qtd}/${limite}.`,
+          tipo: "warn",
+        });
       }
     });
 
     return items;
   }, [membros, selecoes, comissoes, mestresElegiveis]);
 
-    return (
+  return (
     <div className="min-h-screen bg-slate-50 text-slate-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-white rounded-3xl shadow-sm border p-6">
-          <div className="grid grid-cols-[90px_1fr_90px] items-center gap-4">
-            <div className="flex justify-start">
-              <img
-                src={logoLoja}
-                alt="Logo da Loja"
-                className="w-20 h-20 object-contain"
-              />
-            </div>
-
-            <div className="text-center">
-              <h1 className="text-lg md:text-2xl font-bold leading-tight">
-                AUG∴ RESP∴ LOJ∴ SIMB∴
-              </h1>
-              <h2 className="text-xl md:text-3xl font-bold leading-tight mt-1">
-                PHOENIX DO LESTE - Nº 451
-              </h2>
-            </div>
-
-            <div />
+          <div className="flex items-start">
+            <img
+              src={logoLoja}
+              alt="Logo da Loja"
+              className="w-20 h-20 object-contain"
+            />
           </div>
 
-          <p className="text-sm text-slate-600 mt-4 text-center">
-            Sistema de gestão de cargos e comissões
-          </p>
+          <div className="mt-4 text-center">
+            <h1 className="text-base md:text-xl font-bold leading-tight">
+              AUG∴ RESP∴ LOJ∴ SIMB∴ PHOENIX DO LESTE - Nº 451
+            </h1>
+            <p className="text-sm text-slate-600 mt-2">
+              Sistema de gestão de cargos e comissões
+            </p>
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -502,7 +532,9 @@ export default function App() {
                 max={100}
                 placeholder="Presença (%)"
                 value={form.presenca}
-                onChange={(e) => setForm((prev) => ({ ...prev, presenca: Number(e.target.value) }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, presenca: Number(e.target.value) }))
+                }
               />
               <button
                 className="rounded-2xl bg-slate-900 text-white px-4 py-2"

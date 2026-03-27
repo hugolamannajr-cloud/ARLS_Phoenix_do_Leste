@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import Tesseract from "tesseract.js";
 import jsPDF from "jspdf";
-import logo1 from "./assets/logo1.jpeg";
+import logoLoja from "./assets/logo1.jpeg";
 
 type Grau = "Mestre" | "Companheiro" | "Aprendiz" | "";
 
@@ -443,33 +443,35 @@ export default function App() {
     return items;
   }, [membros, selecoes, comissoes, mestresElegiveis]);
 
-  return (
-    <div className="bg-white rounded-3xl shadow-sm border p-6">
-  <div className="grid grid-cols-[90px_1fr_90px] items-center gap-4">
-    <div className="flex justify-start">
-      <img
-        src={logoLoja}
-        alt="Logo da Loja"
-        className="w-20 h-20 object-contain"
-      />
-    </div>
+    return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <div className="bg-white rounded-3xl shadow-sm border p-6">
+          <div className="grid grid-cols-[90px_1fr_90px] items-center gap-4">
+            <div className="flex justify-start">
+              <img
+                src={logoLoja}
+                alt="Logo da Loja"
+                className="w-20 h-20 object-contain"
+              />
+            </div>
 
-    <div className="text-center">
-      <h1 className="text-lg md:text-2xl font-bold leading-tight">
-        AUG∴ RESP∴ LOJ∴ SIMB∴
-      </h1>
-      <h2 className="text-xl md:text-3xl font-bold leading-tight mt-1">
-        PHOENIX DO LESTE - Nº 451
-      </h2>
-    </div>
+            <div className="text-center">
+              <h1 className="text-lg md:text-2xl font-bold leading-tight">
+                AUG∴ RESP∴ LOJ∴ SIMB∴
+              </h1>
+              <h2 className="text-xl md:text-3xl font-bold leading-tight mt-1">
+                PHOENIX DO LESTE - Nº 451
+              </h2>
+            </div>
 
-    <div />
-  </div>
+            <div />
+          </div>
 
-  <p className="text-sm text-slate-600 mt-4 text-center">
-    Sistema de gestão de cargos e comissões
-  </p>
-</div>
+          <p className="text-sm text-slate-600 mt-4 text-center">
+            Sistema de gestão de cargos e comissões
+          </p>
+        </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-white rounded-3xl shadow-sm border p-6 space-y-4">
@@ -502,7 +504,10 @@ export default function App() {
                 value={form.presenca}
                 onChange={(e) => setForm((prev) => ({ ...prev, presenca: Number(e.target.value) }))}
               />
-              <button className="rounded-2xl bg-slate-900 text-white px-4 py-2" onClick={handleSaveMembro}>
+              <button
+                className="rounded-2xl bg-slate-900 text-white px-4 py-2"
+                onClick={handleSaveMembro}
+              >
                 {editingId ? "Salvar edição" : "Adicionar irmão"}
               </button>
             </div>
@@ -510,7 +515,9 @@ export default function App() {
             {ocrText && (
               <details className="text-xs text-slate-600">
                 <summary className="cursor-pointer font-medium">Ver texto bruto do OCR</summary>
-                <pre className="mt-2 whitespace-pre-wrap bg-slate-100 p-3 rounded-2xl">{ocrText}</pre>
+                <pre className="mt-2 whitespace-pre-wrap bg-slate-100 p-3 rounded-2xl">
+                  {ocrText}
+                </pre>
               </details>
             )}
           </div>
@@ -532,19 +539,35 @@ export default function App() {
                   {membros.map((m) => {
                     const grauNormalizado = normalizeGrau(m.grau);
                     const elegivel = grauNormalizado === "Mestre" && m.presenca >= 50;
+
                     return (
                       <tr key={m.id} className="border-b last:border-0">
                         <td className="py-2">{m.nome}</td>
                         <td className="py-2">{grauNormalizado || "Não informado"}</td>
                         <td className="py-2">{m.presenca}%</td>
                         <td className="py-2">
-                          <span className={`inline-flex border rounded-full px-2 py-1 text-xs ${badgeClass(grauNormalizado ? (elegivel ? "ok" : "warn") : "error")}`}>
-                            {grauNormalizado ? (elegivel ? "Mestre elegível" : "Fora dos cargos/comissões") : "Grau não identificado"}
+                          <span
+                            className={`inline-flex border rounded-full px-2 py-1 text-xs ${badgeClass(
+                              grauNormalizado ? (elegivel ? "ok" : "warn") : "error"
+                            )}`}
+                          >
+                            {grauNormalizado
+                              ? elegivel
+                                ? "Mestre elegível"
+                                : "Fora dos cargos/comissões"
+                              : "Grau não identificado"}
                           </span>
                         </td>
                         <td className="py-2 flex gap-2">
-                          <button className="text-sm underline" onClick={() => handleEdit(m)}>Editar</button>
-                          <button className="text-sm underline text-red-700" onClick={() => handleDelete(m.id)}>Excluir</button>
+                          <button className="text-sm underline" onClick={() => handleEdit(m)}>
+                            Editar
+                          </button>
+                          <button
+                            className="text-sm underline text-red-700"
+                            onClick={() => handleDelete(m.id)}
+                          >
+                            Excluir
+                          </button>
                         </td>
                       </tr>
                     );
@@ -562,14 +585,20 @@ export default function App() {
               {CARGOS.map((cargo) => {
                 const elegiveis = elegiveisPorCargo(cargo);
                 const selecionado = selecoes[cargo] || "";
+
                 return (
                   <div key={cargo} className="border rounded-2xl p-4 bg-slate-50">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-semibold">{cargo}</h3>
-                      <span className={`text-xs px-2 py-1 rounded-full border ${badgeClass(PRESENCA_MINIMA[cargo] >= 75 ? "ok" : "warn")}`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full border ${badgeClass(
+                          PRESENCA_MINIMA[cargo] >= 75 ? "ok" : "warn"
+                        )}`}
+                      >
                         mínimo {PRESENCA_MINIMA[cargo]}%
                       </span>
                     </div>
+
                     <select
                       className="w-full border rounded-2xl px-3 py-2 bg-white"
                       value={selecionado}
@@ -582,7 +611,12 @@ export default function App() {
                         </option>
                       ))}
                     </select>
-                    {elegiveis.length === 0 && <p className="text-xs text-red-700 mt-2">Sem Mestre elegível disponível para este cargo.</p>}
+
+                    {elegiveis.length === 0 && (
+                      <p className="text-xs text-red-700 mt-2">
+                        Sem Mestre elegível disponível para este cargo.
+                      </p>
+                    )}
                   </div>
                 );
               })}
@@ -593,11 +627,16 @@ export default function App() {
             <h2 className="text-xl font-semibold mb-4">Alertas</h2>
             <div className="space-y-3">
               {alertas.map((alerta, idx) => (
-                <div key={idx} className={`border rounded-2xl px-3 py-2 text-sm ${badgeClass(alerta.tipo)}`}>
+                <div
+                  key={idx}
+                  className={`border rounded-2xl px-3 py-2 text-sm ${badgeClass(alerta.tipo)}`}
+                >
                   {alerta.texto}
                 </div>
               ))}
-              {alertas.length === 0 && <p className="text-sm text-slate-500">Sem alertas no momento.</p>}
+              {alertas.length === 0 && (
+                <p className="text-sm text-slate-500">Sem alertas no momento.</p>
+              )}
             </div>
           </div>
         </div>
@@ -606,8 +645,11 @@ export default function App() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <div>
               <h2 className="text-xl font-semibold">Comissões</h2>
-              <p className="text-sm text-slate-600">Preenchimento automático respeitando incompatibilidades e disponibilidade.</p>
+              <p className="text-sm text-slate-600">
+                Preenchimento automático respeitando incompatibilidades e disponibilidade.
+              </p>
             </div>
+
             <button
               className="rounded-2xl bg-slate-900 text-white px-4 py-2"
               onClick={preencherComissoesAutomaticamente}
@@ -622,11 +664,16 @@ export default function App() {
             const membrosAtuais = comissoes[comissao] || [];
             const limite = vagasComissao(comissao);
             const elegiveis = elegiveisComissao(comissao);
+
             return (
               <div key={comissao} className="bg-white rounded-3xl shadow-sm border p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-xl font-semibold">{comissao}</h2>
-                  <span className={`text-xs px-2 py-1 rounded-full border ${badgeClass(membrosAtuais.length === limite ? "ok" : "warn")}`}>
+                  <span
+                    className={`text-xs px-2 py-1 rounded-full border ${badgeClass(
+                      membrosAtuais.length === limite ? "ok" : "warn"
+                    )}`}
+                  >
                     {membrosAtuais.length}/{limite}
                   </span>
                 </div>
@@ -635,6 +682,7 @@ export default function App() {
                   {membrosAtuais.map((membroId) => {
                     const membro = membros.find((m) => m.id === membroId);
                     if (!membro) return null;
+
                     return (
                       <button
                         key={membroId}
@@ -645,7 +693,10 @@ export default function App() {
                       </button>
                     );
                   })}
-                  {membrosAtuais.length === 0 && <p className="text-sm text-slate-500">Nenhum membro selecionado.</p>}
+
+                  {membrosAtuais.length === 0 && (
+                    <p className="text-sm text-slate-500">Nenhum membro selecionado.</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -659,15 +710,24 @@ export default function App() {
                       {m.nome} ({m.presenca}%)
                     </button>
                   ))}
-                  {elegiveis.length === 0 && <p className="text-sm text-slate-500">Sem Mestres disponíveis para esta comissão.</p>}
+
+                  {elegiveis.length === 0 && (
+                    <p className="text-sm text-slate-500">
+                      Sem Mestres disponíveis para esta comissão.
+                    </p>
+                  )}
                 </div>
 
                 <div className="mt-4 text-xs text-slate-600 space-y-1">
                   <p>• Usa 3 membros; cai para 2 quando não houver nomes suficientes.</p>
                   <p>• Um irmão pode ter cargo e comissão.</p>
                   <p>• Um irmão não pode participar de mais de uma comissão.</p>
-                  {comissao === "Assuntos Gerais" && <p>• Orador não pode integrar esta comissão.</p>}
-                  {(comissao === "Finanças" || comissao === "Solidariedade") && <p>• Tesoureiro e Hospitaleiro não podem integrar esta comissão.</p>}
+                  {comissao === "Assuntos Gerais" && (
+                    <p>• Orador não pode integrar esta comissão.</p>
+                  )}
+                  {(comissao === "Finanças" || comissao === "Solidariedade") && (
+                    <p>• Tesoureiro e Hospitaleiro não podem integrar esta comissão.</p>
+                  )}
                 </div>
               </div>
             );
@@ -676,23 +736,30 @@ export default function App() {
 
         <div className="bg-white rounded-3xl shadow-sm border p-6">
           <h2 className="text-xl font-semibold mb-4">Resumo final</h2>
+
           <div className="grid md:grid-cols-2 gap-6 text-sm">
             <div>
               <h3 className="font-semibold mb-2">Cargos preenchidos</h3>
               <ul className="space-y-1">
                 {CARGOS.map((cargo) => (
                   <li key={cargo}>
-                    <span className="font-medium">{cargo}:</span> {membros.find((m) => m.id === selecoes[cargo])?.nome || "—"}
+                    <span className="font-medium">{cargo}:</span>{" "}
+                    {membros.find((m) => m.id === selecoes[cargo])?.nome || "—"}
                   </li>
                 ))}
               </ul>
             </div>
+
             <div>
               <h3 className="font-semibold mb-2">Comissões</h3>
               <ul className="space-y-2">
                 {COMISSOES.map((comissao) => (
                   <li key={comissao}>
-                    <span className="font-medium">{comissao}:</span> {(comissoes[comissao] || []).map((id) => membros.find((m) => m.id === id)?.nome).filter(Boolean).join(", ") || "—"}
+                    <span className="font-medium">{comissao}:</span>{" "}
+                    {(comissoes[comissao] || [])
+                      .map((id) => membros.find((m) => m.id === id)?.nome)
+                      .filter(Boolean)
+                      .join(", ") || "—"}
                   </li>
                 ))}
               </ul>

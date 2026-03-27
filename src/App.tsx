@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import Tesseract from "tesseract.js";
 import jsPDF from "jspdf";
+import logoLoja from "./assets/logo-loja.jpeg";
 
 type Grau = "Mestre" | "Companheiro" | "Aprendiz" | "";
 
@@ -445,12 +446,27 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-white rounded-3xl shadow-sm border p-6">
-          <h1 className="text-3xl font-bold">Gestão de Cargos e Comissões</h1>
-          <p className="text-sm text-slate-600 mt-2">
-            Todos os cargos são preenchidos apenas por Mestres. As comissões usam 3 membros e, se não houver nomes suficientes, aceitam 2.
-          </p>
-        </div>
+        <div className="flex justify-start">
+      <img
+        src={logoLoja}
+        alt="Logo da Loja"
+        className="w-20 h-20 object-contain"
+      />
+    </div>
+
+    <div className="text-center">
+      <h1 className="text-xl md:text-3xl font-bold leading-tight">
+        AUG∴ RESP∴ LOJ∴ SIMB∴ PHOENIX DO LESTE - Nº 451
+      </h1>
+    </div>
+
+    <div />
+  </div>
+
+  <p className="text-sm text-slate-600 mt-4 text-center">
+    Sistema de gestão de cargos e comissões
+  </p>
+</div>
 
         <div className="grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-white rounded-3xl shadow-sm border p-6 space-y-4">
